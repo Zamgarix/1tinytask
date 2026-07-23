@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1tinytask</title>
+<style>
+  :root {
+    --bg: #FAF9F8;
+    --surface: #FFFFFF;
+    --border: #E1DFDD;
+    --text: #201F1E;
+    --text-muted: #605E5C;
+    --accent: #0F6CBD;
+    --accent-dark: #0B4F8C;
+    --ring-gold: #D9A44E;
+    --ring-gold-dark: #B8853A;
+    --ring-gold-light: #F2C878;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    font-family: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    padding-bottom: 12vh; /* nudges the content above dead-center */
+    text-align: center;
+  }
+
+  .site-name {
+    margin: 0 0 12px 0;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .site-name::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 30px 0;
+    min-height: 18px;
+  }
+
+  /* ---------- Planet button ---------- */
+  .planet-wrap {
+    perspective: 900px;
+  }
+
+  .planet-btn {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .planet-btn:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 6px;
+    border-radius: 50%;
+  }
+
+  .ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    border: 0 solid transparent;
+    transform: translate(-50%, -50%) rotate(-20deg);
+    opacity: 0;
+    z-index: 1;
+    pointer-events: none;
+    transition: width 0.55s cubic-bezier(.34,1.56,.64,1),
+                height 0.55s cubic-bezier(.34,1.56,.64,1),
+                border-width 0.55s cubic-bezier(.34,1.56,.64,1),
+                opacity 0.4s ease;
+  }
+
+  .sphere {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    box-shadow: 0 6px 16px rgba(32,31,30,0.08);
+    transition: background 0.45s ease, box-shadow 0.45s ease, transform 0.15s ease, border-color 0.45s ease;
+    transform-style: preserve-3d;
+  }
+
+  .planet-btn:hover .sphere {
+    box-shadow: 0 8px 22px rgba(32,31,30,0.12);
+    transform: translateY(-1px);
+  }
+
+  .planet-btn:active .sphere {
+    transform: translateY(0px) scale(0.97);
+  }
+
+  .btn-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.01em;
+    pointer-events: none;
+  }
+
+  /* State after first click: button becomes the planet */
+  .planet-btn.is-planet .sphere {
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 26%),
+      radial-gradient(circle at 38% 32%, #6BB6EE 0%, var(--accent) 50%, var(--accent-dark) 88%, #062F52 100%);
+    border-color: transparent;
+    box-shadow:
+      0 14px 30px rgba(15,108,189,0.32),
+      inset -14px -14px 26px rgba(0,0,0,0.28),
+      inset 10px 10px 20px rgba(255,255,255,0.22);
+  }
+
+  .planet-btn.is-planet .btn-label {
+    display: none;
+  }
+
+  .planet-btn.is-planet .ring {
+    width: 254px;
+    height: 88px;
+    border: 7px solid var(--ring-gold);
+    border-top-color: var(--ring-gold-dark);
+    border-bottom-color: var(--ring-gold-light);
+    opacity: 1;
+    filter: drop-shadow(0 8px 10px rgba(184,133,58,0.30));
+  }
+
+  /* Revolve animation, replayed on every tap */
+  @keyframes spin3d {
+    0%   { transform: rotateY(0deg) rotateX(0deg) scale(1); }
+    30%  { transform: rotateY(150deg) rotateX(6deg) scale(1.06); }
+    65%  { transform: rotateY(300deg) rotateX(-4deg) scale(1.02); }
+    100% { transform: rotateY(360deg) rotateX(0deg) scale(1); }
+  }
+
+  @keyframes ringSpin {
+    0%   { transform: translate(-50%, -50%) rotate(-20deg) scale(1); }
+    50%  { transform: translate(-50%, -50%) rotate(160deg) scale(1.1); }
+    100% { transform: translate(-50%, -50%) rotate(340deg) scale(1); }
+  }
+
+  .planet-btn.spin .sphere {
+    animation: spin3d 0.9s cubic-bezier(.45,.05,.55,.95);
+  }
+
+  .planet-btn.spin .ring {
+    animation: ringSpin 0.9s cubic-bezier(.45,.05,.55,.95);
+  }
+
+  /* ---------- Task text ---------- */
+  .task-panel {
+    margin-top: 34px;
+    max-width: 420px;
+    min-height: 56px;
+  }
+
+  .task-text {
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 0;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .task-text.placeholder {
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+
+  .task-text.fade {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .tag {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 999px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  @media (max-width: 480px) {
+    .site-name { font-size: 22px; }
+    .planet-btn { width: 150px; height: 150px; }
+    .planet-btn.is-planet .ring { width: 212px; height: 74px; border-width: 6px; }
+    .task-text { font-size: 17px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring, .task-text, .sphere { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <main class="stage">
+    <h1 class="site-name">1tinytask</h1>
+    <p class="hint" id="hint">Tap to start your break</p>
+
+    <div class="planet-wrap">
+      <button class="planet-btn" id="taskBtn" aria-label="Get a 10-second task">
+        <span class="ring" aria-hidden="true"></span>
+        <span class="sphere">
+          <span class="btn-label" id="btnLabel">Tap</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="task-panel">
+      <p class="task-text placeholder" id="taskText">Press the planet for your task.</p>
+      <span class="tag" id="taskTag" style="display:none;"></span>
+    </div>
+  </main>
+
+<script>
+  const TASKS = [
+  {
+    "id": 1,
+    "text": "Do a silent air-drum solo for 10 seconds.",
+    "category": "fun"
+  },
+  {
+    "id": 2,
+    "text": "Stand up and stretch your arms overhead.",
+    "category": "useful"
+  },
+  {
+    "id": 3,
+    "text": "Roll your shoulders backward five times.",
+    "category": "useful"
+  },
+  {
+    "id": 4,
+    "text": "Make the weirdest face you can and hold it for 5 seconds.",
+    "category": "fun"
+  },
+  {
+    "id": 5,
+    "text": "Take three slow, deep breaths.",
+    "category": "useful"
+  },
+  {
+    "id": 6,
+    "text": "Refill your water glass or bottle.",
+    "category": "useful"
+  },
+  {
+    "id": 7,
+    "text": "Hum your favorite song's chorus, out loud if you dare.",
+    "category": "fun"
+  },
+  {
+    "id": 8,
+    "text": "Sit up straight and reset your posture.",
+    "category": "useful"
+  },
+  {
+    "id": 9,
+    "text": "Blink slowly ten times to rest your eyes.",
+    "category": "useful"
+  },
+  {
+    "id": 10,
+    "text": "Give yourself a round of applause, literally.",
+    "category": "fun"
+  },
+  {
+    "id": 11,
+    "text": "Unclench your jaw and drop your shoulders.",
+    "category": "useful"
+  },
+  {
+    "id": 12,
+    "text": "Tidy one item on your desk.",
+    "category": "useful"
+  },
+  {
+    "id": 13,
+    "text": "Do a tiny victory dance in your chair.",
+    "category": "fun"
+  },
+  {
+    "id": 14,
+    "text": "Roll your wrists in slow circles.",
+    "category": "useful"
+  },
+  {
+    "id": 15,
+    "text": "Look at something far away for ten seconds.",
+    "category": "useful"
+  },
+  {
+    "id": 16,
+    "text": "Wiggle your fingers like you're casting a spell.",
+    "category": "fun"
+  },
+  {
+    "id": 17,
+    "text": "Take a sip of water right now.",
+    "category": "useful"
+  },
+  {
+    "id": 18,
+    "text": "Close your eyes and count to ten slowly.",
+    "category": "useful"
+  },
+  {
+    "id": 19,
+    "text": "Whisper \"I am a legend\" to yourself.",
+    "category": "fun"
+  },
+  {
+    "id": 20,
+    "text": "Roll your neck gently side to side.",
+    "category": "useful"
+  },
+  {
+    "id": 21,
+    "text": "Push your chair back and stretch your legs.",
+    "category": "useful"
+  },
+  {
+    "id": 22,
+    "text": "Draw a smiley face on a sticky note and place it somewhere you'll see it.",
+    "category": "fun"
+  },
+  {
+    "id": 23,
+    "text": "Wipe down your keyboard or desk surface.",
+    "category": "useful"
+  },
+  {
+    "id": 24,
+    "text": "Check and correct your sitting posture.",
+    "category": "useful"
+  },
+  {
+    "id": 25,
+    "text": "Try to touch your nose with your tongue.",
+    "category": "fun"
+  },
+  {
+    "id": 26,
+    "text": "Take one slow, deep belly breath.",
+    "category": "useful"
+  },
+  {
+    "id": 27,
+    "text": "Massage your temples for a few seconds.",
+    "category": "useful"
+  },
+  {
+    "id": 28,
+    "text": "Strike your best superhero pose for 5 seconds.",
+    "category": "fun"
+  },
+  {
+    "id": 29,
+    "text": "Stretch your fingers wide, then relax them.",
+    "category": "useful"
+  },
+  {
+    "id": 30,
+    "text": "Stand up, then sit back down mindfully.",
+    "category": "useful"
+  },
+  {
+    "id": 31,
+    "text": "Snap your fingers to an imaginary beat.",
+    "category": "fun"
+  },
+  {
+    "id": 32,
+    "text": "Adjust your screen brightness to a comfortable level.",
+    "category": "useful"
+  },
+  {
+    "id": 33,
+    "text": "Step toward a window for a breath of fresh air.",
+    "category": "useful"
+  },
+  {
+    "id": 34,
+    "text": "Give your coffee mug a silly nickname.",
+    "category": "fun"
+  },
+  {
+    "id": 35,
+    "text": "Write down the one task you'll do next.",
+    "category": "useful"
+  },
+  {
+    "id": 36,
+    "text": "Delete one file or email you don't need.",
+    "category": "useful"
+  },
+  {
+    "id": 37,
+    "text": "Blink in Morse code and try to spell \"HI.\"",
+    "category": "fun"
+  },
+  {
+    "id": 38,
+    "text": "Close one browser tab you're not using.",
+    "category": "useful"
+  },
+  {
+    "id": 39,
+    "text": "Set a short timer for your next focused task.",
+    "category": "useful"
+  },
+  {
+    "id": 40,
+    "text": "Pretend you just won an award \u2014 thank the room.",
+    "category": "fun"
+  },
+  {
+    "id": 41,
+    "text": "Stack any loose papers into one neat pile.",
+    "category": "useful"
+  },
+  {
+    "id": 42,
+    "text": "Plug in your phone if it's running low.",
+    "category": "useful"
+  },
+  {
+    "id": 43,
+    "text": "Do a slow-motion high five to no one.",
+    "category": "fun"
+  },
+  {
+    "id": 44,
+    "text": "Wipe your glasses or screen if they're smudged.",
+    "category": "useful"
+  },
+  {
+    "id": 45,
+    "text": "Save your current work right now.",
+    "category": "useful"
+  },
+  {
+    "id": 46,
+    "text": "Invent a secret handshake with yourself.",
+    "category": "fun"
+  },
+  {
+    "id": 47,
+    "text": "Clear one small piece of clutter near your desk.",
+    "category": "useful"
+  },
+  {
+    "id": 48,
+    "text": "Check your chair height is comfortable.",
+    "category": "useful"
+  },
+  {
+    "id": 49,
+    "text": "Say the alphabet backward as fast as you can.",
+    "category": "fun"
+  },
+  {
+    "id": 50,
+    "text": "Jot down one thing you're waiting on.",
+    "category": "useful"
+  },
+  {
+    "id": 51,
+    "text": "Close one app you're not currently using.",
+    "category": "useful"
+  },
+  {
+    "id": 52,
+    "text": "Name your chair, if it doesn't have one yet.",
+    "category": "fun"
+  },
+  {
+    "id": 53,
+    "text": "Check tomorrow's first task, then let it go for now.",
+    "category": "useful"
+  },
+  {
+    "id": 54,
+    "text": "Note your next meeting time, then get back to work.",
+    "category": "useful"
+  },
+  {
+    "id": 55,
+    "text": "Let out a dramatic sigh, then laugh at yourself for it.",
+    "category": "fun"
+  },
+  {
+    "id": 56,
+    "text": "Turn off one notification you don't need on.",
+    "category": "useful"
+  },
+  {
+    "id": 57,
+    "text": "Find a working pen and set it within reach.",
+    "category": "useful"
+  },
+  {
+    "id": 58,
+    "text": "Strike a superhero landing pose under your desk.",
+    "category": "fun"
+  },
+  {
+    "id": 59,
+    "text": "Dry or warm your hands for a moment.",
+    "category": "useful"
+  },
+  {
+    "id": 60,
+    "text": "Turn your phone face-down for the next few minutes.",
+    "category": "useful"
+  }
+];
+
+  const STORAGE_ORDER_KEY = "1tinytask_order";
+  const STORAGE_INDEX_KEY = "1tinytask_index";
+
+  const btn = document.getElementById("taskBtn");
+  const taskText = document.getElementById("taskText");
+  const taskTag = document.getElementById("taskTag");
+  const hint = document.getElementById("hint");
+
+  function shuffle(array) {
+    const a = array.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function loadState() {
+    let order = null;
+    let index = null;
+    try {
+      order = JSON.parse(localStorage.getItem(STORAGE_ORDER_KEY));
+      index = parseInt(localStorage.getItem(STORAGE_INDEX_KEY), 10);
+    } catch (e) {
+      order = null;
+    }
+
+    const validOrder =
+      Array.isArray(order) &&
+      order.length === TASKS.length &&
+      order.every((id) => TASKS.some((t) => t.id === id));
+
+    if (!validOrder || isNaN(index)) {
+      order = shuffle(TASKS.map((t) => t.id));
+      index = 0;
+    }
+
+    return { order, index };
+  }
+
+  function saveState(order, index) {
+    localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(order));
+    localStorage.setItem(STORAGE_INDEX_KEY, String(index));
+  }
+
+  let { order, index } = loadState();
+
+  function showNextTask() {
+    if (index >= order.length) {
+      order = shuffle(TASKS.map((t) => t.id));
+      index = 0;
+    }
+
+    const currentId = order[index];
+    const task = TASKS.find((t) => t.id === currentId);
+    index += 1;
+    saveState(order, index);
+
+    taskText.classList.add("fade");
+    setTimeout(() => {
+      taskText.textContent = task.text;
+      taskText.classList.remove("placeholder");
+      taskText.classList.remove("fade");
+      taskTag.textContent = task.category;
+      taskTag.style.display = "inline-block";
+    }, 200);
+
+    if (!btn.classList.contains("is-planet")) {
+      btn.classList.add("is-planet");
+    }
+    hint.textContent = "Spin it again!";
+
+    btn.classList.remove("spin");
+    void btn.offsetWidth; // reflow so the animation replays every click
+    btn.classList.add("spin");
+  }
+
+  btn.addEventListener("click", showNextTask);
+</script>
+</body>
+</html>
